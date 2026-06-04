@@ -1,0 +1,11 @@
+name: Student-Stress-Prediction-Pipeline
+
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    command: "python modelling.py"
+    parameters:
+      test_size: 0.2
+      random_state: 42
+      model_type: "all"
