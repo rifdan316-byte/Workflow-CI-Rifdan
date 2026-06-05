@@ -1,79 +1,38 @@
+# modelling.py
 import os
 import pandas as pd
+import mlflow
+import mlflow.sklearn
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report
+from sklearn.metrics import accuracy_score, classification_report
 
-def get_data_dir():
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    possible_dirs = [
-        os.path.join(repo_root, 'Eksperimen_SML_Rifdan', 'prepocessing', 'data_processed'),
-        os.path.join(repo_root, 'prepocessing', 'data_processed'),
-        os.path.join(repo_root, 'data_processed'),
-        os.path.join(repo_root, 'dataset_processed'),
-    ]
-    for path in possible_dirs:
-        if os.path.exists(path):
-            return path
-
-    raise FileNotFoundError(
-        "Folder dataset tidak ditemukan. Pastikan hasil preprocessing ada di salah satu: "
-        "Eksperimen_SML_Rifdan/prepocessing/data_processed atau prepocessing/data_processed"
-    )
-
-
-def configure_mlflow():
-    import mlflow
-    import mlflow.sklearn
+def load_ready_data(data_dir):
+    """Memuat data secara relatif karena MLProject dijalankan di folder yang sama."""
+    print(f"Memuat data dari folder: {data_dir}")
+    X_train = pd.read_csv(os.path.join(data_dir, "X_train_ready.csv"))
+    X_test = pd.read_csv(os.path.join(data_dir, "X_test_ready.csv"))
+    y_train = pd.read_csv(os.path.join(data_dir, "y_train_ready.csv")).squeeze()
+    y_test = pd.read_csv(os.path.join(data_dir, "y_test_ready.csv")).squeeze()
     
-    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    local_mlflow_dir = os.path.join(repo_root, 'mlruns')
-    remote_uri = "http://127.0.0.1:5000"
-
-    mlflow.set_tracking_uri(remote_uri)
-    try:
-        mlflow.set_experiment("Student Stress Prediction Base")
-        print(f"Terhubung ke MLflow server: {remote_uri}")
-    except Exception:
-        os.makedirs(local_mlflow_dir, exist_ok=True)
-        mlflow.set_tracking_uri(local_mlflow_dir)
-        mlflow.set_experiment("Student Stress Prediction Base")
-        print(f"Tidak dapat terhubung ke MLflow server {remote_uri}. Menggunakan penyimpanan lokal: {local_mlflow_dir}")
-
-    mlflow.autolog()
-    return mlflow
-
-
-def train_base_model():
-    # 1. Konfigurasi MLflow
-    mlflow = configure_mlflow()
-    
-    # 2. Load Data Hasil Preprocessing
-    base_data_dir = get_data_dir()
-
-    X_train = pd.read_csv(os.path.join(base_data_dir, 'X_train.csv'))
-    X_test = pd.read_csv(os.path.join(base_data_dir, 'X_test.csv'))
-    y_train = pd.read_csv(os.path.join(base_data_dir, 'y_train.csv')).values.ravel()
-    y_test = pd.read_csv(os.path.join(base_data_dir, 'y_test.csv')).values.ravel()
-    
-    # 3. Inisiasi Model Dasar Random Forest
-    model = RandomForestClassifier(random_state=42)
-    
-    print("Memulai pelatihan model dasar Random Forest dengan MLflow Autolog...")
-    with mlflow.start_run(run_name="Base_Random_Forest"):
-        model.fit(X_train, y_train)
-        
-        predictions = model.predict(X_test)
-        acc = accuracy_score(y_test, predictions)
-        precision = precision_score(y_test, predictions)
-        recall = recall_score(y_test, predictions)
-        f1 = f1_score(y_test, predictions)
-        
-        print(f"\n=== Model Base Metrics ===")
-        print(f"Accuracy:  {acc:.4f}")
-        print(f"Precision: {precision:.4f}")
-        print(f"Recall:    {recall:.4f}")
-        print(f"F1-Score:  {f1:.4f}")
-        print(f"\nClassification Report:\n{classification_report(y_test, predictions)}")
+    return X_train, X_test, y_train.astype(int), y_test.astype(int)
 
 if __name__ == "__main__":
-    train_base_model()
+    # Jalur folder data disesuaikan dengan struktur di dalam folder MLProject
+    DATA_DIR = "student_preprocessing"
+    X_train, X_test, y_train, y_test = load_ready_data(DATA_DIR)
+    
+    # Set backend local tracking untuk GitHub Actions
+    mlflow.set_tracking_uri("file:../mlruns")
+    mlflow.set_experiment("Student_Stress_CI")
+    
+    # Menggunakan autolog sesuai kriteria basic modelling
+    mlflow.sklearn.autolog(log_models=True)
+    
+    print("=== CI Re-training: Memulai Pelatihan Model ===")
+    with mlflow.start_run(run_name="CI_Automated_Run"):
+        model = RandomForestClassifier(random_state=42, max_depth=5, n_estimators=50)
+        model.fit(X_train, y_train)
+        
+        y_pred = model.predict(X_test)
+        acc = accuracy_score(y_test, y_pred)
+        print(f"Re-training Selesai! Akurasi Model Baru: {acc:.4f}")
