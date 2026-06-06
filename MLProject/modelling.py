@@ -6,7 +6,7 @@ import mlflow.sklearn
 
 def main():
     # 1. Set nama Eksperimen di MLflow
-    mlflow.set_experiment("Eksperimen_Baseline_Rifdan")
+    # mlflow.set_experiment("Eksperimen_Baseline_Rifdan")
     
     # 2. Mengaktifkan Autologging otomatis dari MLflow
     mlflow.sklearn.autolog()
