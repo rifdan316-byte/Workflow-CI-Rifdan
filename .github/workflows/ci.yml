@@ -27,4 +27,4 @@ jobs:
     - name: Run MLflow Project
       run: |
         # Menggunakan --env-manager=local agar langsung memakai python environment yang sudah kita setup di atas
-        mlflow run MLProject --env-manager=local
+        mlflow run MLProject --env-manager=local  --experiment-name "Eksperimen_Baseline_Rifdan"
